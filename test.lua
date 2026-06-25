@@ -1,6 +1,6 @@
 --[[
 ╔══════════════════════════════════════════════════════════════════════════════╗
-║        DISCORD IMAGE PRINTER (PIXEL ART GENERATOR)                           ║
+║        TABBED DISCORD IMAGE PRINTER                                          ║
 ║        Build a Boat for Treasure  •  Delta Executor Compatible               ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 --]]
@@ -9,28 +9,23 @@ local Players = game:GetService("Players")
 local HttpService = game:GetService("HttpService")
 local player = Players.LocalPlayer
 
--- Универсальный API для десериализации картинок в JSON (Pixel Data)
 local IMAGE_API = "https://image-to-pixel-api.vercel.app/api/convert?url="
 
+-- Переменная для остановки печати, если нужно
+local isPrinting = false 
+
 -- ════════════════════════════════════════════════════════════════════
---  ФУНКЦИЯ СБОРКИ (ПЛЕЙСИНГ БЛОКОВ)
+--  ФУНКЦИЯ СПАВНА БЛОКОВ
 -- ════════════════════════════════════════════════════════════════════
 local function spawnBlock(position, color)
     pcall(function()
-        -- Вызов оригинального ремоута игры для постройки блока
-        -- В Build a Boat используется золотой молот / инструмент постройки
-        local workspacePlayer = workspace:FindFirstChild(player.Name)
-        if not workspacePlayer then return end
-        
-        -- Ищем строительный ивент игры
         local buildEvent = game:GetService("ReplicatedStorage"):FindFirstChild("PlaceBlock", true) 
             or game:GetService("Event"):FindFirstChild("PlaceBlock")
             
         if buildEvent then
-            -- Передаем параметры: Имя блока (Plastic), Позиция, Поворот, Цвет
             buildEvent:FireServer("PlasticBlock", position, Vector3.new(0,0,0), color)
         else
-            -- Альтернативный метод, если ремоут скрыт (локальный спавн для тестов)
+            -- Локальный бекап для тестов в студии
             local part = Instance.new("Part")
             part.Size = Vector3.new(2, 2, 2)
             part.Position = position
@@ -42,148 +37,260 @@ local function spawnBlock(position, color)
     end)
 end
 
+-- ════════════════════════════════════════════════════════════════════
+--  ИНТЕРФЕЙС (GUI С ВКЛАДКАМИ)
+-- ════════════════════════════════════════════════════════════════════
+local oldGui = player.PlayerGui:FindFirstChild("TabbedPrinterGUI")
+if oldGui then oldGui:Destroy() end
+
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "TabbedPrinterGUI"
+screenGui.Parent = player.PlayerGui
+
+-- Главное окно
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.new(0, 360, 0, 260)
+mainFrame.Position = UDim2.new(0.5, -180, 0.4, -130)
+mainFrame.BackgroundColor3 = Color3.fromRGB(18, 20, 28)
+mainFrame.Active = true
+mainFrame.Draggable = true
+mainFrame.Parent = screenGui
+Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 12)
+local mainStroke = Instance.new("UIStroke", mainFrame)
+mainStroke.Color = Color3.fromRGB(45, 50, 70)
+mainStroke.Thickness = 1.5
+
+-- Панель вкладок (Верхний бар)
+local tabBar = Instance.new("Frame")
+tabBar.Size = UDim2.new(1, 0, 0, 40)
+tabBar.BackgroundColor3 = Color3.fromRGB(28, 30, 43)
+tabBar.Parent = mainFrame
+Instance.new("UICorner", tabBar).CornerRadius = UDim.new(0, 12)
+
+-- Кнопка Вкладки 1 (Печать)
+local tabBtn1 = Instance.new("TextButton")
+tabBtn1.Size = UDim2.new(0.5, 0, 1, 0)
+tabBtn1.BackgroundColor3 = Color3.fromRGB(35, 40, 60)
+tabBtn1.Text = "🖼️ Печать"
+tabBtn1.TextColor3 = Color3.fromRGB(255, 255, 255)
+tabBtn1.Font = Enum.Font.GothamBold
+tabBtn1.TextSize = 13
+tabBtn1.Parent = tabBar
+Instance.new("UICorner", tabBtn1).CornerRadius = UDim.new(0, 10)
+
+-- Кнопка Вкладки 2 (Настройки)
+local tabBtn2 = Instance.new("TextButton")
+tabBtn2.Size = UDim2.new(0.5, 0, 1, 0)
+tabBtn2.Position = UDim2.new(0.5, 0, 0, 0)
+tabBtn2.BackgroundTransparency = 1
+tabBtn2.Text = "⚙️ Настройки"
+tabBtn2.TextColor3 = Color3.fromRGB(150, 155, 180)
+tabBtn2.Font = Enum.Font.GothamBold
+tabBtn2.TextSize = 13
+tabBtn2.Parent = tabBar
+Instance.new("UICorner", tabBtn2).CornerRadius = UDim.new(0, 10)
+
+
+-- ════════════════════════════════════════════════════════════════════
+--  КОНТЕНТ ВКЛАДОК
+-- ════════════════════════════════════════════════════════════════════
+
+-- ВКЛАДКА 1: ПЕЧАТЬ
+local printTabFrame = Instance.new("Frame")
+printTabFrame.Size = UDim2.new(1, 0, 1, -40)
+printTabFrame.Position = UDim2.new(0, 0, 0, 40)
+printTabFrame.BackgroundTransparency = 1
+printTabFrame.Visible = true
+printTabFrame.Parent = mainFrame
+
+-- Поле ввода ссылки URL
+local urlInput = Instance.new("TextBox")
+urlInput.Size = UDim2.new(1, -30, 0, 36)
+urlInput.Position = UDim2.new(0, 15, 0, 20)
+urlInput.PlaceholderText = "Вставьте ссылку на фото из Discord..."
+urlInput.Text = ""
+urlInput.BackgroundColor3 = Color3.fromRGB(28, 32, 48)
+urlInput.TextColor3 = Color3.fromRGB(240, 240, 240)
+urlInput.Font = Enum.Font.Gotham
+urlInput.TextSize = 12
+urlInput.Parent = printTabFrame
+Instance.new("UICorner", urlInput).CornerRadius = UDim.new(0, 6)
+Instance.new("UIStroke", urlInput).Color = Color3.fromRGB(50, 55, 80)
+
+-- Размеры (Ширина и Высота в один ряд)
+local sizeXInput = Instance.new("TextBox")
+sizeXInput.Size = UDim2.new(0, 160, 0, 36)
+sizeXInput.Position = UDim2.new(0, 15, 0, 70)
+sizeXInput.PlaceholderText = "Ширина (X)"
+sizeXInput.Text = "32"
+sizeXInput.BackgroundColor3 = Color3.fromRGB(28, 32, 48)
+sizeXInput.TextColor3 = Color3.fromRGB(240, 240, 240)
+sizeXInput.Font = Enum.Font.Gotham
+sizeXInput.Parent = printTabFrame
+Instance.new("UICorner", sizeXInput).CornerRadius = UDim.new(0, 6)
+
+local sizeYInput = Instance.new("TextBox")
+sizeYInput.Size = UDim2.new(0, 160, 0, 36)
+sizeYInput.Position = UDim2.new(1, -175, 0, 70)
+sizeYInput.PlaceholderText = "Высота (Y)"
+sizeYInput.Text = "32"
+sizeYInput.BackgroundColor3 = Color3.fromRGB(28, 32, 48)
+sizeYInput.TextColor3 = Color3.fromRGB(240, 240, 240)
+sizeYInput.Font = Enum.Font.Gotham
+sizeYInput.Parent = printTabFrame
+Instance.new("UICorner", sizeYInput).CornerRadius = UDim.new(0, 6)
+
+-- Кнопка ПОСТРОИТЬ
+local buildBtn = Instance.new("TextButton")
+buildBtn.Size = UDim2.new(1, -30, 0, 44)
+buildBtn.Position = UDim2.new(0, 15, 0, 140)
+buildBtn.BackgroundColor3 = Color3.fromRGB(88, 101, 242)
+buildBtn.Text = "🔨 ПОСТРОИТЬ"
+buildBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+buildBtn.Font = Enum.Font.GothamBold
+buildBtn.TextSize = 14
+buildBtn.Parent = printTabFrame
+Instance.new("UICorner", buildBtn).CornerRadius = UDim.new(0, 8)
+
+
+-- ВКЛАДКА 2: НАСТРОЙКИ
+local settingsTabFrame = Instance.new("Frame")
+settingsTabFrame.Size = UDim2.new(1, 0, 1, -40)
+settingsTabFrame.Position = UDim2.new(0, 0, 0, 40)
+settingsTabFrame.BackgroundTransparency = 1
+settingsTabFrame.Visible = false
+settingsTabFrame.Parent = mainFrame
+
+-- Текст-подпись для лимита блоков
+local maxBlocksLabel = Instance.new("TextLabel")
+maxBlocksLabel.Size = UDim2.new(1, -30, 0, 20)
+maxBlocksLabel.Position = UDim2.new(0, 15, 0, 20)
+maxBlocksLabel.BackgroundTransparency = 1
+maxBlocksLabel.Text = "Максимальное количество блоков пластика:"
+maxBlocksLabel.TextColor3 = Color3.fromRGB(180, 185, 200)
+maxBlocksLabel.Font = Enum.Font.GothamBold
+maxBlocksLabel.TextSize = 12
+maxBlocksLabel.TextXAlignment = Enum.TextXAlignment.Left
+maxBlocksLabel.Parent = settingsTabFrame
+
+-- Поле ввода максимального количества блоков
+local maxBlocksInput = Instance.new("TextBox")
+maxBlocksInput.Size = UDim2.new(1, -30, 0, 36)
+maxBlocksInput.Position = UDim2.new(0, 15, 0, 45)
+maxBlocksInput.PlaceholderText = "Например: 1000"
+maxBlocksInput.Text = "2000" -- Значение по умолчанию
+maxBlocksInput.BackgroundColor3 = Color3.fromRGB(28, 32, 48)
+maxBlocksInput.TextColor3 = Color3.fromRGB(240, 240, 240)
+maxBlocksInput.Font = Enum.Font.Gotham
+maxBlocksInput.TextSize = 13
+maxBlocksInput.Parent = settingsTabFrame
+Instance.new("UICorner", maxBlocksInput).CornerRadius = UDim.new(0, 6)
+Instance.new("UIStroke", maxBlocksInput).Color = Color3.fromRGB(50, 55, 80)
+
+
+-- ════════════════════════════════════════════════════════════════════
+--  ЛОГИКА ПЕРЕКЛЮЧЕНИЯ ВКЛАДОК
+-- ════════════════════════════════════════════════════════════════════
+tabBtn1.MouseButton1Click:Connect(function()
+    -- Включаем вкладку 1
+    printTabFrame.Visible = true
+    settingsTabFrame.Visible = false
+    -- Меняем стили кнопок
+    tabBtn1.BackgroundColor3 = Color3.fromRGB(35, 40, 60)
+    tabBtn1.BackgroundTransparency = 0
+    tabBtn1.TextColor3 = Color3.fromRGB(255, 255, 255)
+    
+    tabBtn2.BackgroundTransparency = 1
+    tabBtn2.TextColor3 = Color3.fromRGB(150, 155, 180)
+end)
+
+tabBtn2.MouseButton1Click:Connect(function()
+    -- Включаем вкладку 2
+    printTabFrame.Visible = false
+    settingsTabFrame.Visible = true
+    -- Меняем стили кнопок
+    tabBtn2.BackgroundColor3 = Color3.fromRGB(35, 40, 60)
+    tabBtn2.BackgroundTransparency = 0
+    tabBtn2.TextColor3 = Color3.fromRGB(255, 255, 255)
+    
+    tabBtn1.BackgroundTransparency = 1
+    tabBtn1.TextColor3 = Color3.fromRGB(150, 155, 180)
+end)
+
+
+-- ════════════════════════════════════════════════════════════════════
+--  ЛОГИКА ГЕНЕРАЦИИ И ВЫЧИСЛЕНИЙ
+-- ════════════════════════════════════════════════════════════════════
 local function drawImage(pixelData, sizeX, sizeY)
     local character = player.Character
-    if not character or not character:FindFirstChild("HumanoidRootPart") then 
-        print("Ошибка: Персонаж не найден!") 
-        return 
-    end
+    if not character or not character:FindFirstChild("HumanoidRootPart") then return end
     
-    -- Точка отсчета — чуть впереди игрока
     local startPos = character.HumanoidRootPart.Position + character.HumanoidRootPart.CFrame.LookVector * 15
-    local blockSize = 2 -- Размер одного пикселя-блока в игре
+    local blockSize = 2
+    local blocksSpawned = 0
     
-    print("Начало печати картинки...")
+    -- Получаем лимит блоков из второй вкладки
+    local maxAllowedBlocks = tonumber(maxBlocksInput.Text) or 999999
     
-    -- Проходим по сетке пикселей
+    isPrinting = true
+    
     for y = 1, sizeY do
         for x = 1, sizeX do
+            if not isPrinting then break end
+            
+            -- Проверка на превышение лимита блоков
+            if blocksSpawned >= maxAllowedBlocks then
+                print("Предупреждение: Достигнут лимит пластика! Печать остановлена.")
+                buildBtn.Text = "🛑 Лимит блоков!"
+                task.wait(2)
+                return
+            end
+            
             local pixelIndex = ((y - 1) * sizeX) + x
             local hexColor = pixelData[pixelIndex]
             
             if hexColor and hexColor ~= "TRANSPARENT" then
-                -- Конвертируем HEX-строку в Color3
                 local r = tonumber(string.sub(hexColor, 1, 2), 16) / 255
                 local g = tonumber(string.sub(hexColor, 3, 4), 16) / 255
                 local b = tonumber(string.sub(hexColor, 5, 6), 16) / 255
                 local color = Color3.new(r, g, b)
                 
-                -- Вычисляем позицию блока в пространстве (вертикальная стена)
                 local blockPos = startPos + Vector3.new((x - sizeX/2) * blockSize, (sizeY/2 - y) * blockSize, 0)
                 
                 spawnBlock(blockPos, color)
+                blocksSpawned = blocksSpawned + 1
                 
-                -- Микро-задержка, чтобы Delta Executor не вылетел, и античит не кикнул
-                task.wait(0.02)
+                task.wait(0.02) -- Защита от вылета Делты
             end
         end
+        if not isPrinting then break end
     end
-    print("Печать успешно завершена!")
+    isPrinting = false
 end
 
--- ════════════════════════════════════════════════════════════════════
---  ИНТЕРФЕЙС (GUI)
--- ════════════════════════════════════════════════════════════════════
-local oldGui = player.PlayerGui:FindFirstChild("ImagePrinterGUI")
-if oldGui then oldGui:Destroy() end
-
-local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "ImagePrinterGUI"
-screenGui.Parent = player.PlayerGui
-
-local mainFrame = Instance.new("Frame")
-mainFrame.Size = UDim2.new(0, 350, 0, 220)
-mainFrame.Position = UDim2.new(0.5, -175, 0.4, -110)
-mainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
-mainFrame.Active = true
-mainFrame.Draggable = true
-mainFrame.Parent = screenGui
-Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 10)
-
-local title = Instance.new("TextLabel")
-title.Size = UDim2.new(1, 0, 0, 40)
-title.Text = "🖼️ Discord Image Printer"
-title.TextColor3 = Color3.fromRGB(255, 255, 255)
-title.BackgroundColor3 = Color3.fromRGB(35, 35, 50)
-title.Font = Enum.Font.GothamBold
-title.TextSize = 14
-title.Parent = mainFrame
-Instance.new("UICorner", title).CornerRadius = UDim.new(0, 10)
-
--- Поле ввода ссылки URL
-local urlInput = Instance.new("TextBox")
-urlInput.Size = UDim2.new(1, -30, 0, 35)
-urlInput.Position = UDim2.new(0, 15, 0, 55)
-urlInput.PlaceholderText = "Вставьте ссылку на фото из Discord..."
-urlInput.Text = ""
-urlInput.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
-urlInput.TextColor3 = Color3.fromRGB(230, 230, 230)
-urlInput.Font = Enum.Font.Gotham
-urlInput.TextSize = 12
-urlInput.Parent = mainFrame
-Instance.new("UICorner", urlInput).CornerRadius = UDim.new(0, 6)
-
--- Поле ввода размера (Ширина)
-local sizeInputX = Instance.new("TextBox")
-sizeInputX.Size = UDim2.new(0, 150, 0, 35)
-sizeInputX.Position = UDim2.new(0, 15, 0, 105)
-sizeInputX.PlaceholderText = "Ширина (напр. 32)"
-sizeInputX.Text = "32"
-sizeInputX.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
-sizeInputX.TextColor3 = Color3.fromRGB(230, 230, 230)
-sizeInputX.Font = Enum.Font.Gotham
-sizeInputX.TextSize = 12
-sizeInputX.Parent = mainFrame
-Instance.new("UICorner", sizeInputX).CornerRadius = UDim.new(0, 6)
-
--- Поле ввода размера (Высота)
-local sizeInputY = Instance.new("TextBox")
-sizeInputY.Size = UDim2.new(0, 150, 0, 35)
-sizeInputY.Position = UDim2.new(1, -165, 0, 105)
-sizeInputY.PlaceholderText = "Высота (напр. 32)"
-sizeInputY.Text = "32"
-sizeInputY.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
-sizeInputY.TextColor3 = Color3.fromRGB(230, 230, 230)
-sizeInputY.Font = Enum.Font.Gotham
-sizeInputY.TextSize = 12
-sizeInputY.Parent = mainFrame
-Instance.new("UICorner", sizeInputY).CornerRadius = UDim.new(0, 6)
-
--- Кнопка Сборки
-local buildBtn = Instance.new("TextButton")
-buildBtn.Size = UDim2.new(1, -30, 0, 45)
-buildBtn.Position = UDim2.new(0, 15, 0, 155)
-buildBtn.BackgroundColor3 = Color3.fromRGB(114, 137, 218) -- Цвет Дискорда
-buildBtn.Text = "🔨 Начать генерацию блоков"
-buildBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-buildBtn.Font = Enum.Font.GothamBold
-buildBtn.TextSize = 14
-buildBtn.Parent = mainFrame
-Instance.new("UICorner", buildBtn).CornerRadius = UDim.new(0, 8)
-
--- ════════════════════════════════════════════════════════════════════
---  ОБРАБОТКА НАЖАТИЯ
--- ════════════════════════════════════════════════════════════════════
 buildBtn.MouseButton1Click:Connect(function()
+    if isPrinting then
+        isPrinting = false
+        buildBtn.Text = "🔨 ПОСТРОИТЬ"
+        return
+    end
+
     local url = urlInput.Text
-    local sizeX = tonumber(sizeInputX.Text) or 32
-    local sizeY = tonumber(sizeInputY.Text) or 32
+    local sizeX = tonumber(sizeXInput.Text) or 32
+    local sizeY = tonumber(sizeYInputInput and sizeYInput.Text) or 32
     
     if url == "" or not string.match(url, "^https?://") then
-        buildBtn.Text = "❌ Неверная ссылка!"
-        task.wait(2)
-        buildBtn.Text = "🔨 Начать генерацию блоков"
+        buildBtn.Text = "❌ Неверный URL!"
+        task.wait(1.5)
+        buildBtn.Text = "🔨 ПОСТРОИТЬ"
         return
     end
     
-    buildBtn.Text = "⏳ Скачивание и обработка..."
-    buildBtn.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
+    buildBtn.Text = "⏳ Загрузка..."
     
-    -- Кодируем URL, чтобы передать его внешнему API сервера
     local encodedUrl = HttpService:UrlEncode(url)
     local requestUrl = IMAGE_API .. encodedUrl .. "&width=" .. sizeX .. "&height=" .. sizeY
     
-    -- Используем стандартный функционал Delta Executor для GET запросов
     local success, response = pcall(function()
         return game:HttpGet(requestUrl)
     end)
@@ -194,21 +301,16 @@ buildBtn.MouseButton1Click:Connect(function()
         end)
         
         if decodeSuccess and type(pixelTable) == "table" then
-            buildBtn.Text = "🧱 Строю... Пожалуйста, ждите"
-            buildBtn.BackgroundColor3 = Color3.fromRGB(46, 204, 113)
-            
-            -- Запуск постройки
+            buildBtn.Text = "🛑 ОСТАНОВИТЬ"
             drawImage(pixelTable, sizeX, sizeY)
-            
             buildBtn.Text = "✅ Готово!"
             task.wait(2)
         else
-            buildBtn.Text = "❌ Ошибка парсинга картинки"
+            buildBtn.Text = "❌ Ошибка данных"
         end
     else
-        buildBtn.Text = "❌ Ошибка загрузки сервера"
+        buildBtn.Text = "❌ Ошибка HTTP запроса"
     end
     
-    buildBtn.BackgroundColor3 = Color3.fromRGB(114, 137, 218)
-    buildBtn.Text = "🔨 Начать генерацию блоков"
+    buildBtn.Text = "🔨 ПОСТРОИТЬ"
 end)
