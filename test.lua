@@ -1,50 +1,106 @@
-local UserInputService = game:GetService("UserInputService")
-local Players = game:GetService("Players")
+local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
 
-local player = Players.LocalPlayer
-local holding = false
-local magnetRange = 150 -- Радиус работы магнита
+local Window = Fluent:CreateWindow({
+    Title = "BABFT Multi-Hub | Delta Edition",
+    SubTitle = "by AI Assistant",
+    TabWidth = 160,
+    Size = UDim2.fromOffset(580, 340),
+    Acrylic = true,
+    Theme = "Dark"
+})
 
--- Отслеживаем нажатие клавиши R
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if not gameProcessed and input.KeyCode == Enum.KeyCode.R then
-        holding = true
+local Tabs = {
+    Main = Window:CreateTab({ Title = "Auto Build & Image", Icon = "image" }),
+    Exploits = Window:CreateTab({ Title = "AutoFarm & Misc", Icon = "zap" })
+}
+
+-- [ ВКЛАДКА 1: AUTO BUILD И ГЕНЕРАТОР КАРТИНОК ]
+Tabs.Main:CreateParagraph({
+    Title = "Image Generator & Stealer",
+    Content = "Загружайте сторонние скрипты для постройки картинок или копирования прямо через этот интерфейс."
+})
+
+Tabs.Main:CreateButton({
+    Name = "Запустить Image / Pixel Builder (Строитель картинок)",
+    Callback = function()
+        Window:Destroy() -- Закрываем это меню, чтобы не мешало
+        -- Загрузка известного скрипта для генерации картинок из блоков в BABFT
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/5Ten987/ImageToMap/main/Source.lua"))()
     end
-end)
+})
 
--- Отслеживаем отпускание клавиши R
-UserInputService.InputEnded:Connect(function(input)
-    if input.KeyCode == Enum.KeyCode.R then
-        holding = false
+Tabs.Main:CreateButton({
+    Name = "Запустить Альтернативный Auto-Build (Vynixius)",
+    Callback = function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/RegularVynixius/Vynixius/main/BuildABoatForTreasure"))()
     end
-end)
+})
 
-task.spawn(function()
-    while task.wait(0.05) do
-        if holding then
-            local char = player.Character
-            if char and char:FindFirstChild("HumanoidRootPart") then
-                local root = char.HumanoidRootPart
+-- [ ВКЛАДКА 2: AUTOFARM & MISC ]
+local WalkSpeedSlider = Tabs.Exploits:CreateSlider("WS", {
+    Title = "Скорость бега (WalkSpeed)",
+    Description = "Стандартная скорость — 16",
+    Default = 16,
+    Min = 16,
+    Max = 150,
+    Rounding = 0,
+    Callback = function(Value)
+        game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = Value
+    end
+})
 
-                for _, item in ipairs(workspace:GetDescendants()) do
-                    -- Проверяем: это деталь, она НЕ зафиксирована (без Anchored) и это не наш персонаж
-                    if item:IsA("BasePart") and not item.Anchored and not item:IsDescendantOf(char) then
-                        local distance = (item.Position - root.Position).Magnitude
-                        
-                        if distance <= magnetRange then
-                            -- ДОПОЛНИТЕЛЬНО: Ломаем соединения, если предмет приварен к чему-то
-                            for _, joint in ipairs(item:GetChildren()) do
-                                if joint:IsA("Weld") or joint:IsA("ManualWeld") or joint:IsA("WeldConstraint") then
-                                    joint:Destroy() -- Уничтожаем сварку, освобождая деталь
-                                end
+local JumpPowerSlider = Tabs.Exploits:CreateSlider("JP", {
+    Title = "Сила прыжка (JumpPower)",
+    Description = "Стандартная сила — 50",
+    Default = 50,
+    Min = 50,
+    Max = 300,
+    Rounding = 0,
+    Callback = function(Value)
+        game.Players.LocalPlayer.Character.Humanoid.JumpPower = Value
+    end
+})
+
+-- Логика Автофарма золота
+local farming = false
+Tabs.Exploits:CreateToggle("FarmToggle", {
+    Title = "Автофарм золота (Auto Farm)",
+    Default = false,
+    Callback = function(Value)
+        farming = Value
+        task.spawn(function()
+            while farming do
+                pcall(function()
+                    local char = game.Players.LocalPlayer.Character
+                    local root = char and char:FindFirstChild("HumanoidRootPart")
+                    if root then
+                        -- Быстрое перемещение по стадиям к финишу
+                        for i = 1, 10 do
+                            if not farming then break end
+                            local stage = workspace:FindFirstChild("BoatStages"):FindFirstChild("NormalStages"):FindFirstChild("Stage"..i)
+                            if stage and stage:FindFirstChild("CaveMustHave") then
+                                root.CFrame = stage.CaveMustHave.CFrame
+                                task.wait(2.5) -- Безопасный интервал для зачисления золота
                             end
-                            
-                            -- Притягиваем деталь к персонажу
-                            item.CFrame = root.CFrame
+                        end
+                        -- Телепорт к сундуку
+                        if farming then
+                            local goldChest = workspace:FindFirstChild("BoatStages"):FindFirstChild("NormalStages"):FindFirstChild("TheEnd"):FindFirstChild("GoldenChest")
+                            if goldChest and goldChest:FindFirstChild("WoodChest") then
+                                root.CFrame = goldChest.WoodChest.CFrame
+                                task.wait(4)
+                            end
                         end
                     end
-                end
+                end)
+                task.wait(1)
             end
-        end
+        end)
     end
-end)
+})
+
+Fluent:Notify({
+    Title = "Успешно!",
+    Content = "Скрипт полностью готов к использованию в Delta Executor.",
+    Duration = 5
+})
