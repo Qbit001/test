@@ -3,11 +3,10 @@ local Players = game:GetService("Players")
 
 local player = Players.LocalPlayer
 local holding = false
-local magnetRange = 150 -- Радиус работы магнита (в стадах). Можно изменить.
+local magnetRange = 150 -- Радиус работы магнита
 
 -- Отслеживаем нажатие клавиши R
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    -- gameProcessed проверяет, не печатает ли игрок в чат
     if not gameProcessed and input.KeyCode == Enum.KeyCode.R then
         holding = true
     end
@@ -20,24 +19,27 @@ UserInputService.InputEnded:Connect(function(input)
     end
 end)
 
--- Создаем отдельный поток для цикла магнита
 task.spawn(function()
-    while task.wait(0.05) do -- Обновляем каждые 0.05 секунд, чтобы не вызывать сильных лагов
+    while task.wait(0.05) do
         if holding then
             local char = player.Character
             if char and char:FindFirstChild("HumanoidRootPart") then
                 local root = char.HumanoidRootPart
 
-                -- Перебираем все объекты в игровом мире
                 for _, item in ipairs(workspace:GetDescendants()) do
-                    -- Фильтруем объекты: это должна быть деталь, она не должна быть закреплена
-                    -- и она не должна быть частью вашего персонажа
+                    -- Проверяем: это деталь, она НЕ зафиксирована (без Anchored) и это не наш персонаж
                     if item:IsA("BasePart") and not item.Anchored and not item:IsDescendantOf(char) then
                         local distance = (item.Position - root.Position).Magnitude
                         
-                        -- Если предмет в радиусе действия
                         if distance <= magnetRange then
-                            -- Телепортируем предмет к центру персонажа
+                            -- ДОПОЛНИТЕЛЬНО: Ломаем соединения, если предмет приварен к чему-то
+                            for _, joint in ipairs(item:GetChildren()) do
+                                if joint:IsA("Weld") or joint:IsA("ManualWeld") or joint:IsA("WeldConstraint") then
+                                    joint:Destroy() -- Уничтожаем сварку, освобождая деталь
+                                end
+                            end
+                            
+                            -- Притягиваем деталь к персонажу
                             item.CFrame = root.CFrame
                         end
                     end
