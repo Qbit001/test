@@ -4,6 +4,10 @@ if game.PlaceId ~= 537413528 then
     return
 end
 
+-- Имитация задержки загрузки
+print("Загрузка скрипта...")
+task.wait(5)
+
 -- Универсальная функция HTTP-запроса для эксплойтов
 local httpRequest = (syn and syn.request) or request or http_request or (fluxus and fluxus.request)
 if not httpRequest then
@@ -14,7 +18,7 @@ end
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 
--- Переменные для хранения настроек из полей ввода
+-- Переменные для хранения настроек
 local ImageUrl = ""
 local BuildSizeInput = "30x30"
 local BlockSizeInput = "1"
@@ -27,7 +31,7 @@ local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 -- Создание главного окна
 local Window = Rayfield:CreateWindow({
    Name = "BABFT | Image Loader Menu",
-   LoadingTitle = "Загрузка меню загрузчика...",
+   LoadingTitle = "Загрузка скрипта...",
    LoadingSubtitle = "by Assistant",
    ConfigurationSaving = {
       Enabled = false,
@@ -46,12 +50,11 @@ local Window = Rayfield:CreateWindow({
 local MainTab = Window:CreateTab("Главная", 4483362458)
 
 -- Раздел: Настройки изображения
-local SettingsSection = MainTab:CreateSection("Параметры изображения")
+MainTab:CreateSection("Параметры изображения")
 
--- Поле ввода: URL картинки
 MainTab:CreateInput({
-   Name = "Прямая URL картинки",
-   PlaceholderText = "Введите ссылку (.png / .jpg)...",
+   Name = "URL картинки (Поддерживает Discord)",
+   PlaceholderText = "Вставьте ссылку из Discord...",
    CurrentValue = "",
    RemoveTextAfterFocusLost = false,
    Flag = "ImageUrlFlag",
@@ -60,7 +63,6 @@ MainTab:CreateInput({
    end,
 })
 
--- Поле ввода: Размер постройки
 MainTab:CreateInput({
    Name = "Размер постройки",
    PlaceholderText = "Например: 30x30",
@@ -72,7 +74,6 @@ MainTab:CreateInput({
    end,
 })
 
--- Поле ввода: Размер блоков
 MainTab:CreateInput({
    Name = "Размер блоков",
    PlaceholderText = "Например: 1 или 0.5",
@@ -85,9 +86,8 @@ MainTab:CreateInput({
 })
 
 -- Раздел: Позиционирование
-local PosSection = MainTab:CreateSection("Координаты и смещение")
+MainTab:CreateSection("Координаты и смещение")
 
--- Поле ввода: Смещение по X
 MainTab:CreateInput({
    Name = "Смещение по X",
    PlaceholderText = "0",
@@ -99,7 +99,6 @@ MainTab:CreateInput({
    end,
 })
 
--- Поле ввода: Смещение по Y
 MainTab:CreateInput({
    Name = "Смещение по Y",
    PlaceholderText = "5",
@@ -112,9 +111,8 @@ MainTab:CreateInput({
 })
 
 -- Раздел: Действия
-local ActionSection = MainTab:CreateSection("Действия")
+MainTab:CreateSection("Действия")
 
--- Функция получения позиции игрока
 local function getBasePosition()
     local character = LocalPlayer.Character
     if character and character:FindFirstChild("HumanoidRootPart") then
@@ -123,7 +121,7 @@ local function getBasePosition()
     return Vector3.new(0, 10, 0)
 end
 
--- Функция предварительного просмотра (prew)
+-- Функция предварительного просмотра (prew) с заголовками для Discord
 local function prew()
     if ImageUrl == "" then
         Rayfield:Notify({
@@ -137,19 +135,26 @@ local function prew()
 
     Rayfield:Notify({
         Title = "Превью",
-        Content = "Загрузка изображения для предпросмотра...",
+        Content = "Загрузка изображения...",
         Duration = 3,
         Image = 4483362458,
     })
 
+    -- Добавлен User-Agent для обхода защиты Discord CDN
     local success, response = pcall(function()
-        return httpRequest({ Url = ImageUrl, Method = "GET" })
+        return httpRequest({
+            Url = ImageUrl,
+            Method = "GET",
+            Headers = {
+                ["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            }
+        })
     end)
 
     if not success or not response or response.StatusCode ~= 200 then
         Rayfield:Notify({
             Title = "Ошибка",
-            Content = "Не удалось загрузить картинку по URL!",
+            Content = "Не удалось загрузить картинку. Проверьте ссылку!",
             Duration = 3,
             Image = 4483362458,
         })
@@ -159,7 +164,6 @@ local function prew()
     local offsetX = tonumber(OffsetXInput) or 0
     local offsetY = tonumber(OffsetYInput) or 0
     local basePos = getBasePosition()
-    local previewPos = basePos + Vector3.new(offsetX, offsetY, 5)
 
     task.spawn(function()
         task.wait(1)
@@ -172,7 +176,6 @@ local function prew()
     end)
 end
 
--- Кнопка: Предпросмотр (Prew)
 MainTab:CreateButton({
    Name = "Предпросмотр (Prew)",
    Callback = function()
@@ -180,7 +183,6 @@ MainTab:CreateButton({
    end,
 })
 
--- Кнопка: Построить
 MainTab:CreateButton({
    Name = "Построить картинку",
    Callback = function()
@@ -201,14 +203,21 @@ MainTab:CreateButton({
           Image = 4483362458,
       })
 
+      -- Запрос с заголовком браузера для Discord
       local success, response = pcall(function()
-          return httpRequest({ Url = ImageUrl, Method = "GET" })
+          return httpRequest({
+              Url = ImageUrl,
+              Method = "GET",
+              Headers = {
+                  ["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+              }
+          })
       end)
 
       if not success or not response or response.StatusCode ~= 200 then
           Rayfield:Notify({
               Title = "Ошибка",
-              Content = "Ошибка скачивания по URL!",
+              Content = "Ошибка скачивания! Проверьте валидность ссылки.",
               Duration = 3,
               Image = 4483362458,
           })
@@ -219,7 +228,6 @@ MainTab:CreateButton({
       local offsetX = tonumber(OffsetXInput) or 0
       local offsetY = tonumber(OffsetYInput) or 0
       local basePos = getBasePosition()
-      local spawnPos = basePos + Vector3.new(offsetX, offsetY, 5)
 
       task.spawn(function()
           task.wait(2)
@@ -233,7 +241,6 @@ MainTab:CreateButton({
    end,
 })
 
--- Уведомление при успешной загрузке меню
 Rayfield:Notify({
    Title = "Успешно!",
    Content = "Меню загрузчика изображений BABFT загружено.",
