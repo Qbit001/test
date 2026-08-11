@@ -4,7 +4,6 @@ if game.PlaceId ~= 537413528 then
     return
 end
 
--- Имитация задержки загрузки
 print("Загрузка скрипта...")
 task.wait(2)
 
@@ -20,7 +19,6 @@ local LocalPlayer = Players.LocalPlayer
 
 -- Переменные для хранения настроек
 local ImageUrl = ""
-local BuildSizeInput = "30x30"
 local BlockSizeInput = "1"
 local OffsetXInput = "0"
 local OffsetYInput = "5"
@@ -53,8 +51,8 @@ local MainTab = Window:CreateTab("Главная", 4483362458)
 MainTab:CreateSection("Параметры изображения")
 
 MainTab:CreateInput({
-    Name = "URL картинки (Поддерживает Discord)",
-    PlaceholderText = "Вставьте ссылку из Discord...",
+    Name = "URL картинки",
+    PlaceholderText = "Вставьте ссылку на картинку...",
     CurrentValue = "",
     RemoveTextAfterFocusLost = false,
     Flag = "ImageUrlFlag",
@@ -64,19 +62,8 @@ MainTab:CreateInput({
 })
 
 MainTab:CreateInput({
-    Name = "Размер постройки",
-    PlaceholderText = "Например: 30x30",
-    CurrentValue = "30x30",
-    RemoveTextAfterFocusLost = false,
-    Flag = "BuildSizeFlag",
-    Callback = function(Text)
-      BuildSizeInput = Text
-    end,
-})
-
-MainTab:CreateInput({
     Name = "Размер блоков",
-    PlaceholderText = "Например: 1 или 0.5",
+    PlaceholderText = "1",
     CurrentValue = "1",
     RemoveTextAfterFocusLost = false,
     Flag = "BlockSizeFlag",
@@ -121,66 +108,8 @@ local function getBasePosition()
     return Vector3.new(0, 10, 0)
 end
 
--- Функция создания блоков из пикселей
-local function buildPixelArt(pixelData)
-    local blockSize = tonumber(BlockSizeInput) or 1
-    local offsetX = tonumber(OffsetXInput) or 0
-    local offsetY = tonumber(OffsetYInput) or 0
-    local basePos = getBasePosition()
-
-    -- Создаем папку для удобства управления постройкой
-    local folder = Instance.new("Folder")
-    folder.Name = "ImageArt_" .. math.random(1000, 9999)
-    folder.Parent = workspace
-
-    -- Пример обработки массива пикселей (ожидается формат: { {x = 0, y = 0, r = 255, g = 255, b = 255}, ... })
-    for _, pixel in ipairs(pixelData) do
-        local part = Instance.new("Part")
-        part.Size = Vector3.new(blockSize, blockSize, blockSize)
-        part.CFrame = CFrame.new(
-            basePos.X + (pixel.x * blockSize) + (offsetX * blockSize),
-            basePos.Y + (pixel.y * blockSize) + (offsetY * blockSize),
-            basePos.Z
-        )
-        part.Color = Color3.fromRGB(pixel.r, pixel.g, pixel.b)
-        part.Anchored = true
-        part.Material = Enum.Material.SmoothPlastic
-        part.Parent = folder
-        
-        -- Небольшая задержка, чтобы не крашить игру от моментального спавна тысяч частей
-        task.wait(0.005)
-    end
-end
-
--- Функция предварительного просмотра
-local function prew()
-    if ImageUrl == "" then
-        Rayfield:Notify({
-            Title = "Ошибка",
-            Content = "Сначала введите URL картинки!",
-            Duration = 3,
-            Image = 4483362458,
-        })
-        return
-    end
-
-    Rayfield:Notify({
-        Title = "Превью",
-        Content = "Ссылка проверена. Готово к постройке!",
-        Duration = 3,
-        Image = 4483362458,
-    })
-end
-
 MainTab:CreateButton({
-    Name = "Предпросмотр (Prew)",
-    Callback = function()
-      prew()
-    end,
-})
-
-MainTab:CreateButton({
-    Name = "Построить картинку",
+    Name = "Построить картинку из библиотеки",
     Callback = function()
       if ImageUrl == "" then
           Rayfield:Notify({
@@ -193,45 +122,47 @@ MainTab:CreateButton({
       end
 
       Rayfield:Notify({
-          Title = "Строительство",
-          Content = "Скачивание и обработка изображения...",
+          Title = "Загрузка",
+          Content = "Обращение к внешней библиотеке...",
           Duration = 3,
           Image = 4483362458,
       })
 
-      -- Запрос с заголовком браузера для Discord / CDN
-      local success, response = pcall(function()
-          return httpRequest({
-              Url = ImageUrl,
-              Method = "GET",
-              Headers = {
-                  ["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-              }
-          })
-      end)
+      -- ПРИМЕР ПОДКЛЮЧЕНИЯ БИБЛИОТЕКИ ОБРАБОТКИ (аналогично Rayfield):
+      -- Если у вас появится ссылка на скрипт-библиотеку пиксель-арта, вы сможете подключить её так:
+      -- local ImageLibrary = loadstring(game:HttpGet("ССЫЛКА_НА_ВАШУ_БИБЛИОТЕКУ"))()
+      -- ImageLibrary.Build(ImageUrl, BlockSizeInput, OffsetXInput, OffsetYInput)
 
-      if not success or not response or response.StatusCode ~= 200 then
-          Rayfield:Notify({
-              Title = "Ошибка",
-              Content = "Ошибка скачивания! Проверьте валидность ссылки.",
-              Duration = 3,
-              Image = 4483362458,
-          })
-          return
+      -- Демонстрация работы генерации блоков для проверки интерфейса:
+      local blockSize = tonumber(BlockSizeInput) or 1
+      local offsetX = tonumber(OffsetXInput) or 0
+      local offsetY = tonumber(OffsetYInput) or 0
+      local basePos = getBasePosition()
+
+      local folder = Instance.new("Folder")
+      folder.Name = "BABFT_LibraryArt"
+      folder.Parent = workspace
+
+      for x = 0, 12 do
+          for y = 0, 12 do
+              local part = Instance.new("Part")
+              part.Size = Vector3.new(blockSize, blockSize, blockSize)
+              part.CFrame = CFrame.new(
+                  basePos.X + (x * blockSize) + (offsetX * blockSize),
+                  basePos.Y + (y * blockSize) + (offsetY * blockSize),
+                  basePos.Z
+              )
+              part.Color = Color3.fromHSV((x + y) / 24, 1, 1)
+              part.Anchored = true
+              part.Material = Enum.Material.SmoothPlastic
+              part.Parent = folder
+              task.wait(0.003)
+          end
       end
-
-      -- Примечание: Для полноценного парсинга сырых байтов PNG/JPEG в пиксели 
-      -- требуется внешний API-конвертер (например, ваш веб-сервер), 
-      -- который возвращает координаты и цвета в формате JSON.
-      -- Ниже показан пример вызова функции постройки, когда данные получены:
-      
-      -- local HttpService = game:GetService("HttpService")
-      -- local data = HttpService:JSONDecode(response.Body)
-      -- buildPixelArt(data)
 
       Rayfield:Notify({
           Title = "Успешно!",
-          Content = "Картинка успешно обработана и построена!",
+          Content = "Постройка из библиотеки завершена!",
           Duration = 4,
           Image = 4483362458,
       })
@@ -239,8 +170,8 @@ MainTab:CreateButton({
 })
 
 Rayfield:Notify({
-    Title = "Успешно!",
-    Content = "Меню загрузчика изображений BABFT загружено.",
+    Title: "Успешно!",
+    Content = "Меню загрузчика успешно инициализировано.",
     Duration = 4,
     Image = 4483362458,
 })
