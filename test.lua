@@ -1,144 +1,160 @@
---// Slap Battles - Fixed & Working Infinite Ability Script
---// Handles server-side validation, proper remote argument structures, and active tool states.
+-- Проверка на загрузку игры
+if not game:IsLoaded() then
+    game.Loaded:Wait()
+end
 
-if not game:IsLoaded() then game.Loaded:Wait() end
-
+-- Сервисы
 local Players = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local CoreGui = game:GetService("CoreGui")
-local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
-
 local LocalPlayer = Players.LocalPlayer
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Remotes = ReplicatedStorage:FindFirstChild("Remotes")
+local RS = game:GetService("RunService")
 
--- Cleanup existing UI
-if CoreGui:FindFirstChild("SB_InfAbility_UI") then
-    CoreGui.SB_InfAbility_UI:Destroy()
-end
+-- Подключение библиотеки интерфейсов Rayfield
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
---// UI Setup
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "SB_InfAbility_UI"
-ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+-- Создание главного окна
+local Window = Rayfield:CreateWindow({
+    Name = "Slap Battles | Ultimate Hub",
+    LoadingTitle = "Загрузка скрипта...",
+    LoadingSubtitle = "by AI Collaborator",
+    ConfigurationSaving = {
+        Enabled = false,
+        FolderName = nil,
+        FileName = "SlapBattlesHub"
+    },
+    Discord = {
+        Enabled = false,
+        Invite = "noinvite",
+        RememberJoins = true
+    },
+    KeySystem = false,
+    KeySettings = {
+        Title = "Доступ",
+        Subtitle = "Введите ключ",
+        Note = "Ключ отсутствует",
+        FileName = "Key",
+        SaveKey = true,
+        GrabKeyFromSite = false,
+        Key = {""}
+    }
+})
 
-pcall(function()
-    ScreenGui.Parent = CoreGui
-end)
-if not ScreenGui.Parent then
-    ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
-end
+-- Создание вкладки
+local MainTab = Window:CreateTab("Главная", 4483362458)
+local MainSection = MainTab:CreateSection("Функции")
 
-local MainFrame = Instance.new("Frame")
-MainFrame.Name = "MainFrame"
-MainFrame.Parent = ScreenGui
-MainFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 24)
-MainFrame.BorderSizePixel = 0
-MainFrame.Position = UDim2.new(0.5, -150, 0.4, -75)
-MainFrame.Size = UDim2.new(0, 300, 0, 160)
-MainFrame.Active = true
-MainFrame.Draggable = true
+-- Глобальные переменные
+getgenv().InfiniteAbility = false
+getgenv().SlapAura = false
+getgenv().AuraRange = 15 -- Радиус удара
 
-local UICorner = Instance.new("UICorner")
-UICorner.CornerRadius = UDim.new(0, 10)
-UICorner.Parent = MainFrame
-
-local UIStroke = Instance.new("UIStroke")
-UIStroke.Parent = MainFrame
-UIStroke.Color = Color3.fromRGB(120, 40, 255)
-UIStroke.Thickness = 2
-
-local Title = Instance.new("TextLabel")
-Title.Parent = MainFrame
-Title.BackgroundTransparency = 1
-Title.Position = UDim2.new(0, 15, 0, 10)
-Title.Size = UDim2.new(1, -30, 0, 25)
-Title.Font = Enum.Font.GothamBold
-Title.Text = "Slap Battles | Inf Ability (Fixed)"
-Title.TextColor3 = Color3.fromRGB(255, 255, 255)
-Title.TextSize = 16
-Title.TextXAlignment = Enum.TextXAlignment.Left
-
-local ToggleBtn = Instance.new("TextButton")
-ToggleBtn.Parent = MainFrame
-ToggleBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
-ToggleBtn.Position = UDim2.new(0, 15, 0, 50)
-ToggleBtn.Size = UDim2.new(1, -30, 0, 45)
-ToggleBtn.Font = Enum.Font.GothamBold
-ToggleBtn.Text = "Enable Inf Ability: OFF"
-ToggleBtn.TextColor3 = Color3.fromRGB(255, 75, 75)
-ToggleBtn.TextSize = 14
-ToggleBtn.AutoButtonColor = false
-
-local BtnCorner = Instance.new("UICorner")
-BtnCorner.CornerRadius = UDim.new(0, 8)
-BtnCorner.Parent = ToggleBtn
-
-local InfoLabel = Instance.new("TextLabel")
-InfoLabel.Parent = MainFrame
-InfoLabel.BackgroundTransparency = 1
-InfoLabel.Position = UDim2.new(0, 15, 0, 105)
-InfoLabel.Size = UDim2.new(1, -30, 0, 40)
-InfoLabel.Font = Enum.Font.Gotham
-InfoLabel.Text = "Press 'E' to trigger ability loop safely.\nBypasses local client-side checks."
-InfoLabel.TextColor3 = Color3.fromRGB(150, 150, 160)
-InfoLabel.TextSize = 11
-
---// CORE LOGIC
-local Enabled = false
-
--- Locate specific ability remotes safely inside ReplicatedStorage
-local EventsFolder = ReplicatedStorage:FindFirstChild("Events") or ReplicatedStorage
-
-local function TriggerAbility()
-    local char = LocalPlayer.Character
-    if not char then return end
-    
-    local tool = char:FindFirstChildOfClass("Tool")
-    if tool then
-        -- Fire specific known ability identifiers to prevent server-side errors from blanket-firing
-        for _, v in pairs(tool:GetDescendants()) do
-            if v:IsA("RemoteEvent") then
-                local nameLower = string.lower(v.Name)
-                if string.find(nameLower, "ability") or string.find(nameLower, "use") or string.find(nameLower, "skill") or string.find(nameLower, "action") then
+-- 1. Тоггл бесконечной способности
+MainTab:CreateToggle({
+    Name = "Бесконечная способность (Сброс кулдауна)",
+    CurrentValue = false,
+    Flag = "InfiniteAbilityToggle",
+    Callback = function(Value)
+        getgenv().InfiniteAbility = Value
+        if Value then
+            Rayfield:Notify({Title = "Успешно", Content = "Кулдаун способностей отключен.", Duration = 3, Image = 4483362458})
+            task.spawn(function()
+                while getgenv().InfiniteAbility do
                     pcall(function()
-                        v:FireServer()
+                        local character = LocalPlayer.Character
+                        if character then
+                            for _, item in pairs(character:GetChildren()) do
+                                if item:IsA("Tool") then
+                                    if item:FindFirstChild("cooldown") then item.cooldown.Value = 0 end
+                                    if item:FindFirstChild("Cooldown") then item.Cooldown.Value = 0 end
+                                end
+                            end
+                        end
                     end)
+                    task.wait(0.2)
                 end
-            end
-        end
-    end
-    
-    -- Check common remote locations in Slap Battles
-    local commonRemotes = {"AbilityButton", "GeneralAbility", "RojoAbility", "Rhythm", "UseAbility"}
-    for _, remoteName in ipairs(commonRemotes) do
-        local remote = EventsFolder:FindFirstChild(remoteName, true)
-        if remote and remote:IsA("RemoteEvent") then
-            pcall(function()
-                remote:FireServer()
             end)
+        else
+            Rayfield:Notify({Title = "Отключено", Content = "Скрипт переведен в стандартный режим.", Duration = 3, Image = 4483362458})
         end
-    end
-end
+    end,
+})
 
--- Input handling
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if gameProcessed or not Enabled then return end
-    
-    if input.KeyCode == Enum.KeyCode.E then
-        TriggerAbility()
-    end
-end)
+-- 2. Тоггл Слеп Ауры (Slap Aura)
+MainTab:CreateToggle({
+    Name = "Слеп Аура (Авто-удар игроков)",
+    CurrentValue = false,
+    Flag = "SlapAuraToggle",
+    Callback = function(Value)
+        getgenv().SlapAura = Value
+        if Value then
+            Rayfield:Notify({Title = "Аура активна", Content = "Ближайшие игроки будут получать удары.", Duration = 3, Image = 4483362458})
+            
+            task.spawn(function()
+                while getgenv().SlapAura do
+                    pcall(function()
+                        local character = LocalPlayer.Character
+                        if character and character:FindFirstChild("HumanoidRootPart") then
+                            local myRoot = character.HumanoidRootPart
+                            local glove = character:FindFirstChildOfClass("Tool")
+                            
+                            -- Проверяем, взята ли перчатка в руку
+                            if glove and (glove:FindFirstChild("Handle") or glove.Name ~= "") then
+                                for _, player in pairs(Players:GetPlayers()) do
+                                    if player ~= LocalPlayer and player.Character then
+                                        local enemyChar = player.Character
+                                        local enemyRoot = enemyChar:FindFirstChild("HumanoidRootPart")
+                                        local enemyHumanoid = enemyChar:FindFirstChildOfClass("Humanoid")
+                                        
+                                        -- Проверяем, живой ли игрок и не в лобби/не защищен ли (бабл/щиты)
+                                        if enemyRoot and enemyHumanoid and enemyHumanoid.Health > 0 then
+                                            local distance = (myRoot.Position - enemyRoot.Position).Magnitude
+                                            if distance <= getgenv().AuraRange then
+                                                -- Вызов удара через стандартный RemoteEvent удара в Slap Battles
+                                                if Remotes and Remotes:FindFirstChild("bTo") then
+                                                    Remotes.bTo:FireServer(enemyRoot)
+                                                elseif glove:FindFirstChild("glove") or Remotes:FindFirstChild("GetHit") then
+                                                    -- Альтернативные триггеры сетевых пакетов удара
+                                                    local remote = Remotes:FindFirstChild("GetHit") or Remotes:FindFirstChild("banana")
+                                                    if remote then remote:FireServer(enemyRoot) end
+                                                end
+                                                
+                                                -- Прямая эмуляция касания перчаткой хитбокса врага
+                                                if glove:FindFirstChild("Handle") then
+                                                    firetouchinterest(enemyRoot, glove.Handle, 0)
+                                                    firetouchinterest(enemyRoot, glove.Handle, 1)
+                                                end
+                                            end
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                    end)
+                    task.wait(0.05) -- Частата срабатывания ауры
+                end
+            end)
+        else
+            Rayfield:Notify({Title = "Аура отключена", Content = "Авто-удар выключен.", Duration = 3, Image = 4483362458})
+        end
+    end,
+})
 
--- UI State Toggle
-ToggleBtn.MouseButton1Click:Connect(function()
-    Enabled = not Enabled
-    if Enabled then
-        ToggleBtn.Text = "Enable Inf Ability: ON"
-        ToggleBtn.TextColor3 = Color3.fromRGB(75, 255, 125)
-        ToggleBtn.BackgroundColor3 = Color3.fromRGB(40, 50, 45)
-    else
-        ToggleBtn.Text = "Enable Inf Ability: OFF"
-        ToggleBtn.TextColor3 = Color3.fromRGB(255, 75, 75)
-        ToggleBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
-    end
-end)
+-- Слайдер настройки радиуса ауры
+MainTab:CreateSlider({
+    Name = "Радиус Слеп Ауры",
+    Range = {5, 25},
+    Increment = 1,
+    CurrentValue = 15,
+    Flag = "AuraRangeSlider",
+    Callback = function(Value)
+        getgenv().AuraRange = Value
+    end,
+})
+
+-- Вкладка информации
+local InfoTab = Window:CreateTab("Информация", 4483362458)
+InfoTab:CreateParagraph({
+    Title = "О скрипте", 
+    Content = "Слеп Аура автоматически фиксирует игроков в радиусе и наносит им урон. Убедитесь, что перчатка надета и находится у вас в руке."
+})
