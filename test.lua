@@ -1,201 +1,155 @@
---// Slap Battles - Inf Ability & Auto-Slap Farm
---// Fixed remotes, auto loop toggle, and safe automation.
-
-if not game:IsLoaded() then game.Loaded:Wait() end
-
+-- Сервисы
 local Players = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local CoreGui = game:GetService("CoreGui")
 local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
-
 local LocalPlayer = Players.LocalPlayer
+local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+local HumanoidRootPart = Character:WaitForChild("HumanoidRootPart")
+local Humanoid = Character:WaitForChild("Humanoid")
 
--- Cleanup existing UI
-if CoreGui:FindFirstChild("SB_InfAbility_UI") then
-    CoreGui.SB_InfAbility_UI:Destroy()
-end
+-- Переменные для отслеживания цели
+local targetPlayer = nil
+local isFollowing = false
+local connection = nil
 
---// UI Setup
+-- Создание графического интерфейса (GUI)
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "SB_InfAbility_UI"
-ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-
-pcall(function()
-    ScreenGui.Parent = CoreGui
-end)
-if not ScreenGui.Parent then
-    ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
-end
+ScreenGui.Name = "SlapBattlesFollowGui"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = game:GetService("CoreGui")
 
 local MainFrame = Instance.new("Frame")
-MainFrame.Name = "MainFrame"
-MainFrame.Parent = ScreenGui
-MainFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 24)
+MainFrame.Size = UDim2.new(0, 260, 0, 160)
+MainFrame.Position = UDim2.new(0.5, -130, 0.4, -80)
+MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 MainFrame.BorderSizePixel = 0
-MainFrame.Position = UDim2.new(0.5, -150, 0.4, -110)
-MainFrame.Size = UDim2.new(0, 300, 0, 230)
 MainFrame.Active = true
-MainFrame.Draggable = true
+MainFrame.Draggable = true -- Меню можно перетаскивать мышкой
+MainFrame.Parent = ScreenGui
 
 local UICorner = Instance.new("UICorner")
-UICorner.CornerRadius = UDim.new(0, 10)
+UICorner.CornerRadius = UDim.new(0, 8)
 UICorner.Parent = MainFrame
 
-local UIStroke = Instance.new("UIStroke")
-UIStroke.Parent = MainFrame
-UIStroke.Color = Color3.fromRGB(120, 40, 255)
-UIStroke.Thickness = 2
-
 local Title = Instance.new("TextLabel")
-Title.Parent = MainFrame
+Title.Size = UDim2.new(1, 0, 0, 35)
 Title.BackgroundTransparency = 1
-Title.Position = UDim2.new(0, 15, 0, 10)
-Title.Size = UDim2.new(1, -30, 0, 25)
-Title.Font = Enum.Font.GothamBold
-Title.Text = "Slap Battles | Inf Ability & Farm"
+Title.Text = "Slap Battles: Follow Player"
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
-Title.TextSize = 16
-Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.TextSize = 14
+Title.Font = Enum.Font.GothamBold
+Title.Parent = MainFrame
 
---// Toggle 1: Inf Ability
-local ToggleBtn = Instance.new("TextButton")
-ToggleBtn.Parent = MainFrame
-ToggleBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
-ToggleBtn.Position = UDim2.new(0, 15, 0, 45)
-ToggleBtn.Size = UDim2.new(1, -30, 0, 40)
-ToggleBtn.Font = Enum.Font.GothamBold
-ToggleBtn.Text = "Auto Ability (Spam): OFF"
-ToggleBtn.TextColor3 = Color3.fromRGB(255, 75, 75)
-ToggleBtn.TextSize = 13
-ToggleBtn.AutoButtonColor = false
+-- Поле ввода ника
+local TextBox = Instance.new("TextBox")
+TextBox.Size = UDim2.new(0.9, 0, 0, 35)
+TextBox.Position = UDim2.new(0.05, 0, 0, 45)
+TextBox.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+TextBox.BorderSizePixel = 0
+TextBox.PlaceholderText = "Введите ник игрока..."
+TextBox.Text = ""
+TextBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+TextBox.TextSize = 13
+TextBox.Font = Enum.Font.Gotham
+TextBox.Parent = MainFrame
 
-local BtnCorner1 = Instance.new("UICorner")
-BtnCorner1.CornerRadius = UDim.new(0, 8)
-BtnCorner1.Parent = ToggleBtn
+local BoxCorner = Instance.new("UICorner")
+BoxCorner.CornerRadius = UDim.new(0, 6)
+BoxCorner.Parent = TextBox
 
---// Toggle 2: Auto Slap Farm
-local FarmBtn = Instance.new("TextButton")
-FarmBtn.Parent = MainFrame
-FarmBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
-FarmBtn.Position = UDim2.new(0, 15, 0, 95)
-FarmBtn.Size = UDim2.new(1, -30, 0, 40)
-FarmBtn.Font = Enum.Font.GothamBold
-FarmBtn.Text = "Auto Slap Farm: OFF"
-FarmBtn.TextColor3 = Color3.fromRGB(255, 75, 75)
-FarmBtn.TextSize = 13
-FarmBtn.AutoButtonColor = false
+-- Кнопка активации
+local TextButton = Instance.new("TextButton")
+TextButton.Size = UDim2.new(0.9, 0, 0, 35)
+TextButton.Position = UDim2.new(0.05, 0, 0, 95)
+TextButton.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
+TextButton.BorderSizePixel = 0
+TextButton.Text = "Идти к игроку"
+TextButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+TextButton.TextSize = 14
+TextButton.Font = Enum.Font.GothamBold
+TextButton.Parent = MainFrame
 
-local BtnCorner2 = Instance.new("UICorner")
-BtnCorner2.CornerRadius = UDim.new(0, 8)
-BtnCorner2.Parent = FarmBtn
+local BtnCorner = Instance.new("UICorner")
+BtnCorner.CornerRadius = UDim.new(0, 6)
+BtnCorner.Parent = TextButton
 
-local InfoLabel = Instance.new("TextLabel")
-InfoLabel.Parent = MainFrame
-InfoLabel.BackgroundTransparency = 1
-InfoLabel.Position = UDim2.new(0, 15, 0, 145)
-InfoLabel.Size = UDim2.new(1, -30, 0, 70)
-InfoLabel.Font = Enum.Font.Gotham
-InfoLabel.Text = "• Auto Ability: Spams ability action events.\n• Auto Farm: Automatically targets nearest players to farm slaps safely."
-InfoLabel.TextColor3 = Color3.fromRGB(150, 150, 160)
-InfoLabel.TextSize = 11
-
---// LOGIC
-local AbilityEnabled = false
-local FarmEnabled = false
-
-local EventsFolder = ReplicatedStorage:FindFirstChild("Events") or ReplicatedStorage
-
-local function TriggerAbility()
-    local char = LocalPlayer.Character
-    if not char then return end
-    
-    local tool = char:FindFirstChildOfClass("Tool")
-    if tool then
-        for _, v in pairs(tool:GetDescendants()) do
-            if v:IsA("RemoteEvent") then
-                local nameLower = string.lower(v.Name)
-                if string.find(nameLower, "ability") or string.find(nameLower, "use") or string.find(nameLower, "skill") or string.find(nameLower, "action") then
-                    pcall(function()
-                        v:FireServer()
-                    end)
-                end
-            end
-        end
-    end
-    
-    local commonRemotes = {"AbilityButton", "GeneralAbility", "RojoAbility", "Rhythm", "UseAbility"}
-    for _, remoteName in ipairs(commonRemotes) do
-        local remote = EventsFolder:FindFirstChild(remoteName, true)
-        if remote and remote:IsA("RemoteEvent") then
-            pcall(function()
-                remote:FireServer()
-            end)
-        end
-    end
+-- Функция поиска игрока по частичному или полному нику
+local function findPlayer(name)
+	name = name:lower()
+	for _, player in ipairs(Players:GetPlayers()) do
+		if player ~= LocalPlayer then
+			if player.Name:lower():sub(1, #name) == name or player.DisplayName:lower():sub(1, #name) == name then
+				return player
+			end
+		end
+	end
+	return nil
 end
 
--- Function to find slap remote and hit players
-local function GetSlapRemote()
-    return EventsFolder:FindFirstChild("slap", true) or ReplicatedStorage:FindFirstChild("Slap", true)
+-- Логика движения к цели
+local function startFollowing()
+	if isFollowing then
+		-- Если уже идет, отменяем действие (выступаєт в роли переключателя)
+		isFollowing = false
+		if connection then connection:Disconnect() end
+		Humanoid:MoveTo(HumanoidRootPart.Position)
+		TextButton.Text = "Идти к игроку"
+		TextButton.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
+		return
+	end
+	
+	local targetName = TextBox.Text
+	targetPlayer = findPlayer(targetName)
+	
+	if not targetPlayer then
+		TextButton.Text = "Игрок не найден!"
+		task.wait(1.5)
+		TextButton.Text = "Идти к игроку"
+		return
+	end
+	
+	isFollowing = true
+	TextButton.Text = "Остановить"
+	TextButton.BackgroundColor3 = Color3.fromRGB(255, 60, 60)
+	
+	-- Обновляем персонажа на случай респавна
+	LocalPlayer.CharacterAdded:Connect(function(newChar)
+		Character = newChar
+		HumanoidRootPart = newChar:WaitForChild("HumanoidRootPart")
+		Humanoid = newChar:WaitForChild("Humanoid")
+	end)
+	
+	connection = RunService.RenderStepped:Connect(function()
+		if not isFollowing then return end
+		
+		-- Проверка, живы ли оба игрока
+		if not targetPlayer.Character or not targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
+			isFollowing = false
+			connection:Disconnect()
+			TextButton.Text = "Цель потеряна"
+			task.wait(1.5)
+			TextButton.Text = "Идти к игроку"
+			TextButton.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
+			return
+		end
+		
+		local targetHRP = targetPlayer.Character.HumanoidRootPart
+		local distance = (HumanoidRootPart.Position - targetHRP.Position).Magnitude
+		
+		-- Если подошли впритык (дистанция меньше 3 studs), останавливаемся
+		if distance <= 3 then
+			Humanoid:MoveTo(HumanoidRootPart.Position)
+			isFollowing = false
+			connection:Disconnect()
+			TextButton.Text = "Дошли!"
+			task.wait(1.5)
+			TextButton.Text = "Идти к игроку"
+			TextButton.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
+		else
+			-- Идем за игроком
+			Humanoid:MoveTo(targetHRP.Position)
+		end
+	end)
 end
 
--- Main loops
-RunService.Stepped:Connect(function()
-    -- Auto Ability Loop
-    if AbilityEnabled then
-        TriggerAbility()
-    end
-    
-    -- Auto Slap Farm Loop
-    if FarmEnabled then
-        local char = LocalPlayer.Character
-        if char and char:FindFirstChild("HumanoidRootPart") then
-            local myRoot = char.HumanoidRootPart
-            local slapRemote = GetSlapRemote()
-            
-            for _, player in ipairs(Players:GetPlayers()) do
-                if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-                    local targetRoot = player.Character.HumanoidRootPart
-                    local distance = (myRoot.Position - targetRoot.Position).Magnitude
-                    
-                    -- Check if player is close enough to slap
-                    if distance < 15 then
-                        if slapRemote and slapRemote:IsA("RemoteEvent") then
-                            pcall(function()
-                                slapRemote:FireServer(player.Character)
-                            end)
-                        end
-                    end
-                end
-            end
-        end
-    end
-end)
-
--- UI Interactions
-ToggleBtn.MouseButton1Click:Connect(function()
-    AbilityEnabled = not AbilityEnabled
-    if AbilityEnabled then
-        ToggleBtn.Text = "Auto Ability (Spam): ON"
-        ToggleBtn.TextColor3 = Color3.fromRGB(75, 255, 125)
-        ToggleBtn.BackgroundColor3 = Color3.fromRGB(40, 50, 45)
-    else
-        ToggleBtn.Text = "Auto Ability (Spam): OFF"
-        ToggleBtn.TextColor3 = Color3.fromRGB(255, 75, 75)
-        ToggleBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
-    end
-end)
-
-FarmBtn.MouseButton1Click:Connect(function()
-    FarmEnabled = not FarmEnabled
-    if FarmEnabled then
-        FarmBtn.Text = "Auto Slap Farm: ON"
-        FarmBtn.TextColor3 = Color3.fromRGB(75, 255, 125)
-        FarmBtn.BackgroundColor3 = Color3.fromRGB(40, 50, 45)
-    else
-        FarmBtn.Text = "Auto Slap Farm: OFF"
-        FarmBtn.TextColor3 = Color3.fromRGB(255, 75, 75)
-        FarmBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
-    end
-end)
+-- Обработка нажатия на кнопку
+TextButton.MouseButton1Click:Connect(startFollowing)
